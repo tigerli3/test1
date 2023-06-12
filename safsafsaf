@@ -1,0 +1,21 @@
+from slack_sdk import WebClient
+from slack_sdk.errors import SlackApiError
+
+client = WebClient(token='xoxp-5197513462115-5210272868161-5366883438356-dfee26c706993c1d6da07a1b0eec1bcf')
+
+try:
+    # response = client.chat_postMessage(channel='C055M10JWF8',
+    #                                    text='test1156')
+    # # print(client)
+    response = client.conversations_history(channel="C055M10JWF8")
+    messages = response["messages"]
+    mesText = messages[0]['text']
+    print(mesText.split('\n')[5])
+
+except SlackApiError as e:
+    print(e)
+    print('Error: {}'.format(e.response['error']))
+
+# response = client.conversations_history(channel="sms", limit=10)
+# messages = response["messages"]
+# mesText = messages['text']
