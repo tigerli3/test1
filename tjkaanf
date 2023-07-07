@@ -1,0 +1,132 @@
+def Worker1234567(self):
+    _driver = self.chromeDriver
+
+    rsv_svc_id_infos = {
+        "5": "S210219091826906010",
+        "6": "S210219092004901944",
+        "7": "S210219092115226884",
+        "8": "S210219092313243896",
+        "9": "S210219092430823699",
+        "10": "S210219092625909779",
+        "11": "S210224094844227739",
+        "12": "S210224095950585838"
+    }
+
+    baseUrl1 = "https://yeyak.seoul.go.kr/web/reservation/selectReservView.do?rsv_svc_id="
+    baseUrl2 = "&code=T100&dCode=T108&sch_order=1&sch_choose_list=%0D%0A%09%09%09%09%09%09%3Cbutton%20type%3D%22button%22%20class%3D%22chk_item%20radio_item1%20svc_prior_N%22%20onclick%3D%22fnChooseDel(%27prior%27)%22%3E%EC%95%84%EB%8B%88%EC%98%A4%3Cspan%20class%3D%22chk_x%22%3E%EC%84%A0%ED%83%9D%EC%B7%A8%EC%86%8C%3C%2Fspan%3E%3C%2Fbutton%3E&sch_type=&sch_text=%EC%84%9C%EB%82%A8%EB%AC%BC&sch_recpt_begin_dt=&sch_recpt_end_dt=&sch_use_begin_dt=&sch_use_end_dt=&svc_prior=N&sch_reqst_value="
+
+    courtUrls = []
+    for i in range(5, 13):
+        courtUrls.append(baseUrl1 + rsv_svc_id_infos[str(i)] + baseUrl2)
+
+    checkDays = []
+
+    prefix = 'cal_202307'
+    for i in range(10, 18):
+        if i != 15 or i != 16:
+            checkDays.append(prefix + str(i))
+
+    for i in range(10000000000):
+        if self.isStart:
+            for j in range(len(rsv_svc_id_infos)):
+                _driver.get(courtUrls[j])
+
+                WebDriverWait(_driver, 10).until(
+                    EC.presence_of_element_located((By.CLASS_NAME, "pop_x"))
+                )
+
+                _driver.find_elements_by_class_name('pop_x')[0].click()
+
+                WebDriverWait(_driver, 10).until(EC.element_to_be_clickable((By.ID, 'calendar')))
+
+                for checkDay in checkDays:
+                    try:
+                        aTagElement = _driver.find_element_by_id(checkDay)
+                        if aTagElement.get_attribute("title") == '예약가능':
+
+                            aTagElement.send_keys(Keys.ENTER)
+
+                            script = ("document.getElementsByClassName('common_btn blue')[0].click();")
+
+                            _driver.execute_script(script)
+
+                            WebDriverWait(_driver, 10).until(
+                                EC.presence_of_element_located((By.ID, "useUnit"))
+                            )
+
+                            ul_TimeElement = _driver.find_element_by_id('useUnit')
+
+                            li_TimeElements = ul_TimeElement.find_elements_by_tag_name('li')
+
+                            timeDatas = []
+                            for li_TimeElement in li_TimeElements:
+                                if li_TimeElement.text.find('18:00~') > -1 or li_TimeElement.text.find('19:00~') > -1:
+                                    if li_TimeElement.get_attribute('class') == 'tab-all':
+                                        timeDatas.append(li_TimeElement)
+
+                            if len(timeDatas) == 2:
+                                for timeData in timeDatas:
+                                    timeData.click()
+
+                                fee_eachDivs = _driver.find_elements_by_class_name('fee_each')
+
+                                for fee_eachDiv in fee_eachDivs:
+                                    if fee_eachDiv.find_elements_by_class_name('tit')[0].text == '일반':
+                                        fee_eachDiv.find_elements_by_class_name('user_plus')[0].click()
+                                        break
+
+                                script = ("document.getElementById('chk_agree1').click();"
+                                          "document.getElementById('chk_agree2').click();")
+
+                                _driver.execute_script(script)
+
+                                btn_inps = _driver.find_elements_by_class_name('btn_inp')
+
+                                for btn_inp in btn_inps:
+                                    if btn_inp.text == '인증번호발송':
+                                        btn_verification = btn_inp
+                                    elif btn_inp.text == '확인':
+                                        btn_Ok = btn_inp
+
+                                btn_verification.click()
+
+                                _driver.switch_to.window(_driver.current_window_handle)
+
+                                WebDriverWait(_driver, 10).until(EC.alert_is_present())
+                                alert = Alert(_driver)
+                                alert.accept()
+
+                                script = ("document.getElementById('form_cert').focus();")
+                                _driver.execute_script(script)
+
+                                wait = WebDriverWait(_driver, 10)
+                                textbox = wait.until(EC.element_to_be_clickable((By.ID, 'form_cert')))
+
+                                # 텍스트 상자에 길이가 5이고 숫자인 값이 입력 될 때까지 대기합니다.
+                                wait.until(lambda driver: len(textbox.get_attribute('value').strip()) == 5 and textbox.get_attribute(
+                                    'value').strip().isdigit())
+
+                                btn_Ok.click()
+
+                                time.sleep(0.5)
+
+                                btnTag = _driver.find_elements_by_class_name("common_btn blue")
+
+                                if len(btnTag) > 0:
+                                    btnTag.click()
+                                else:
+                                    ul_element = _driver.find_element_by_class_name(
+                                        "book_btn_box")  # class name이 "book_btn_box"인 ul 요소 가져오기
+                                    active_li_element = ul_element.find_element_by_css_selector(
+                                        "li.active")  # 하위 li 요소 중 class가 "active"인 li 요소 가져오기
+
+                                    active_li_element.find_elements_by_tag_name('button')[0].click()
+
+                                # Alert의 메시지 가져오기
+                                WebDriverWait(_driver, 10).until(EC.alert_is_present())
+                                alert = Alert(_driver)
+                                alert.accept()
+                    except Exception as e:
+                        pass
+        else:
+            return;
