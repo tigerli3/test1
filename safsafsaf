@@ -1,12 +1,997 @@
-let courtNum = "13";
-let timeText = '1107;평일 12회;2000;2100;1|560;평일 13회;2100;2200;1';
-let rentDate = "20230823"
+MacroMockdongVerifyUi.py
 
-document.body.innerHTML += '<form id="dynForm" action="https://www.ycs.or.kr/fmcs/4" method="post"><input type="hidden" name="action" value="write"><input type="hidden" name="comcd" value="YCS04"><input type="hidden" name="part_cd" value="02"><input type="hidden" name="place_cd" value=' + courtNum + '><input type="hidden" name="time_no" value="' + timeText + '"><input type="hidden" name="rent_type" value="1001"><input type="hidden" name="rent_date" value=' + rentDate + '></form>';
-document.getElementById("dynForm").submit();
+import sys
+from PyQt5.QtWidgets import *
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QIcon
+from datetime import datetime
 
-document.getElementById('team_nm').value = "4";
-document.getElementById('users').value = 4;
-document.getElementById('purpose').value = "4";
-document.getElementById('agree_use1').checked = true;
-document.getElementsByClassName('button action_edit')[0].click();
+from MacroMockdongMainUi import MacroMockdongMainUi
+
+verificationKeyObject = {
+    0: "Vpoqwwlf@186!vFeeQ",
+    1: "pE003mFgvnkxc#gro@",
+    2: "Qp00fkjvnbk124!@as",
+    3: "!209$fjnvbgTlpqiwf",
+    4: "VVVkkoofkQklkdn$09"
+}
+
+def getDateTime(month, day):
+    return datetime(2023, month, day).date()
+
+def compareTime(startDate, endDate):
+    today = datetime.now().date()
+
+    checkTime1 = (today - startDate).days
+    checkTime2 = (endDate - today).days
+
+    if checkTime2 >= 0 and checkTime1 >= 0:
+        return True
+
+    return False
+
+def getVerificationKey():
+    # 11.2 ~ 11.9 -> 0
+    if compareTime(getDateTime(11, 2), getDateTime(11, 9)):
+        return verificationKeyObject[0]
+    # 11.10 ~ 11.17 -> 1
+    if compareTime(getDateTime(11, 10), getDateTime(11, 17)):
+        return verificationKeyObject[1]
+    # 11.18 ~ 11. 25 -> 2
+    if compareTime(getDateTime(11, 18), getDateTime(11, 25)):
+        return verificationKeyObject[2]
+    # 11.26 ~ 12.3 -> 3
+    if compareTime(getDateTime(11, 26), getDateTime(12, 3)):
+        return verificationKeyObject[3]
+    # 12.4 ~ 12.11 -> 4
+    if compareTime(getDateTime(12, 4), getDateTime(12, 11)):
+        return verificationKeyObject[4]
+
+def checkVerificationKey(verificationKey):
+    if verificationKey == getVerificationKey():
+        return True
+
+    return False
+
+class MacroMockdongVerifyUI(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.lbl_VerificationDesc = None
+        self.setGeometry(600, 300, 500, 500)
+        self.setWindowFlags(Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
+        self.resize(310, 100)
+        self.setMinimumSize(310, 100)
+        self.setMaximumSize(310, 100)
+        self.setWindowTitle('Verify')
+        self.setWindowIcon(QIcon('logo.png'))
+
+        self.lbl_VerificationDesc1 = None
+        self.lbl_VerificationDesc2 = None
+        self.lbl_VerificationTitle = None
+        self.le_verificationKey = None
+        self.btn_Verification = None
+
+        self.tryCount = 0
+
+        self.MacroMockdongMainUi = None
+
+        self.setupUi()
+
+    def setupUi(self):
+        self.lbl_VerificationDesc1 = QLabel(self)
+        self.lbl_VerificationDesc1.setText("※ 주어진 인증 키를 입력 후 확인 버튼을 클릭 하세요.")
+        self.lbl_VerificationDesc1.move(5, 10)
+
+        self.lbl_VerificationDesc2 = QLabel(self)
+        self.lbl_VerificationDesc2.setText("인증 번호가 올바르지 않은 경우 관리자에게 문의하세요.")
+        self.lbl_VerificationDesc2.setStyleSheet("color: red;")
+        self.lbl_VerificationDesc2.move(5, 40)
+
+        self.lbl_VerificationTitle = QLabel(self)
+        self.lbl_VerificationTitle.setText("인증 키 : ")
+        self.lbl_VerificationTitle.move(5, 70)
+
+        self.le_verificationKey = QLineEdit(self)
+        self.le_verificationKey.move(60, 65)
+        self.le_verificationKey.returnPressed.connect(self.validationCheck)
+
+        self.btn_Verification = QPushButton(self)
+        self.btn_Verification.move(220, 63)
+        self.btn_Verification.setText('확 인')
+        self.btn_Verification.clicked.connect(self.validationCheck)
+
+    def validationCheck(self):
+        verificationKey = self.le_verificationKey.text()
+
+        if verificationKey == "":
+            QMessageBox.information(self, 'Warning', '인증 키를 입력하세요.', QMessageBox.Ok)
+            self.le_verificationKey.setFocus()
+            return
+
+        res = checkVerificationKey(verificationKey)
+
+        if not res:
+            self.tryCount = self.tryCount+1
+            if self.tryCount > 3:
+                QMessageBox.critical(self, 'Error', '인증 키가 4회 틀렸습니다.\n프로그램을 다시 실행하세요.', QMessageBox.Ok)
+                self.le_verificationKey.clear()
+                self.btn_Verification.setEnabled(False)
+                self.le_verificationKey.setEnabled(False)
+                return
+            else:
+                QMessageBox.warning(self, 'Warning', '인증 키가 올바르지 않습니다.\n다시 입력하세요. (' + str(self.tryCount) + '/3)', QMessageBox.Ok)
+                self.le_verificationKey.clear()
+                self.le_verificationKey.setFocus()
+                return
+        else:
+            QMessageBox.information(self, 'Info', '인증 키 검증 완료.\n매크로 프로그램을 실행합니다.')
+            self.successEvent()
+
+    def successEvent(self):
+        try:
+            self.close()
+            self.MacroMockdongMainUi = MacroMockdongMainUi()
+        except Exception as e:
+            print(e)
+
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    ui = MacroMockdongVerifyUI()
+    ui.show()
+    sys.exit(app.exec_())
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+MacroMockdongMainUi.py
+
+import sys
+from PyQt5.QtWidgets import *
+from PyQt5.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5 import uic
+from pytimekr import pytimekr
+from MacroMockdongMainController import *
+
+form_class = uic.loadUiType('Macro.ui')[0]
+
+
+class ConnectController(QThread):
+    def __init__(self, parent):
+        super(ConnectController, self).__init__(parent)
+        self.parent = parent  # self.parent를 사용하여 WindowClass 위젯을 제어할 수 있다.
+
+    def run(self):
+        if self.parent.macroController is None:
+            self.parent.macroController = MacroMockdongMainController(self.parent)
+        try:
+            self.parent.macroController.moveToLoginPage()
+        except Exception as e:
+            print(e)
+
+
+class StartMacro(QThread):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.parent = parent
+
+    def run(self):
+        self.parent.macroController.startMacro()
+
+
+class StopMacro(QThread):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.parent = parent
+
+    def run(self):
+        self.parent.macroController.stopMacro()
+
+
+class ExitProgram(QThread):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.parent = parent  # self.parent를 사용하여 WindowClass 위젯을 제어할 수 있다.
+
+    def run(self):
+        if self.parent.macroController is not None:
+            self.parent.macroController.exitProgram()
+        else:
+            self.close()
+
+
+class MacroMockdongMainUi(QDialog, form_class):
+    def __init__(self):
+        super(MacroMockdongMainUi, self).__init__()
+        self.timer = None
+        self.qPixmapVar = None
+        self.usedDate = None
+        self.isWeek = False
+        self.holidays = []
+
+        self.macroController = None
+
+        self.setWindowFlags(Qt.WindowTitleHint | Qt.WindowMinimizeButtonHint)
+        self.setupUi2()
+
+        self.show()
+
+    def setupUi2(self):
+        # 로고
+        self.setWindowIcon(QIcon('logo.png'))
+        self.setupUi(self)
+
+        # 코트 사진
+        self.qPixmapVar = QPixmap()
+        self.qPixmapVar.load("courtView.jpg")
+        self.lbl_Img.setPixmap(self.qPixmapVar)
+
+        # 팀, 목적 자동 setting
+        self.le_Team.setText('1')
+        self.le_Purpose.setText('1')
+
+        # 참가 인원 ComboBox
+        for i in range(1, 5):
+            self.cb_UsersCount.addItem(str(i))
+
+        # 시작/종료 코트
+        self.setCourt(1)
+
+        # 현재 시간 표시
+        self.timer = QTimer(self)
+        self.timer.setInterval(100)
+        self.timer.timeout.connect(self.timeout)
+        self.timer.start()
+
+        # 날짜
+        self.cal_UsedDate.showToday()
+
+        # 공휴일 표시
+        fm = QTextCharFormat()
+        fm.setForeground(Qt.red)
+        fm.setBackground(Qt.yellow)
+
+        # 날짜 선택
+        self.cal_UsedDate.setGridVisible(True)
+
+        fHolidays = pytimekr.holidays()  # holidays메소드는 리스트 형태로 관련값 반환
+        holidays = []
+
+        for fHoliday in fHolidays:
+            holidays.append(fHoliday.strftime('%Y%m%d'))
+
+        holidays.append('20231102')
+
+        for holiday in holidays:
+            dHoliday = QDate.fromString(str(holiday), "yyyyMMdd")
+            self.cal_UsedDate.setDateTextFormat(dHoliday, fm)
+
+        self.holidays = holidays
+
+        self.btn_Start.setEnabled(False)
+        self.btn_Stop.setEnabled(False)
+
+        self.setButtonAction()
+
+    # 버튼 등에 action을 연결해줌
+    def setButtonAction(self):
+        # 코트, 예약 시간 콤보박스 변경 event
+        self.cb_StartCourt.currentIndexChanged.connect(self.changeEndCourtComboBoxAction)
+        self.cb_StartTime.currentIndexChanged.connect(self.changeEndTimeComboBoxAction)
+
+        # 날짜 선택 event
+        self.cal_UsedDate.clicked.connect(self.calendarClicked)
+
+        # 버튼 클릭 event
+        # 로그인 페이지 열기
+        self.btn_OpenPage.clicked.connect(self.openPageAction)
+
+        # 캐시 삭제
+        self.btn_ClearCache.clicked.connect(self.clearCacheAction)
+
+        # 시작
+        self.btn_Start.clicked.connect(self.startMacroAction)
+
+        # # 정지
+        self.btn_Stop.clicked.connect(self.stopMacroAction)
+
+        # 종료 버튼 - btn_Exit
+        self.btn_Exit.clicked.connect(self.exitProgram)
+
+    # 캐시 삭제
+    def clearCacheAction(self):
+        QMessageBox.critical(self, 'Cache 삭제', '통장에 있는 돈을 삭제 하는 중...', QMessageBox.Ok)
+        QMessageBox.critical(self, 'Cache 삭제', '적금에 넣어둔 돈을 삭제 하는 중...', QMessageBox.Ok)
+        QMessageBox.critical(self, 'Cache 삭제', '주식에 넣어둔 돈을 삭제 하는 중...', QMessageBox.Ok)
+        QMessageBox.critical(self, 'Cache 삭제', '코인에 넣어둔 돈을 삭제 하는 중...', QMessageBox.Ok)
+        QMessageBox.critical(self, 'Cache 삭제', '모든 돈을 삭제 하는 중...', QMessageBox.Ok)
+
+        QMessageBox.critical(self, 'Cache 삭제', '모든 돈 삭제완료', QMessageBox.Ok)
+        self.btn_ClearCache.setText("캐시 되돌리기")
+        self.btn_ClearCache.setEnabled(False)
+
+    # 매크로 시작
+    def startMacroAction(self):
+        # 대표자
+        teamName = self.le_Team.text()
+        # 참가 인원
+        userCount = self.cb_UsersCount.currentText()
+        # 이용 목적
+        purpose = self.le_Purpose.text()
+        # 이용 날짜
+        usedDate = self.usedDate
+        # 시작 코트
+        startCourt = self.cb_StartCourt.currentText()
+        # 종료 코트
+        endCourt = self.cb_EndCourt.currentText()
+        # 시작 시간
+        startTime = self.cb_StartTime.currentText()
+        # 종료 시간
+        endTime = self.cb_EndTime.currentText()
+
+        valRes = self.validation(teamName=teamName, userCount=userCount, purpose=purpose, usedDate=usedDate,
+                                 startCourt=startCourt, endCourt=endCourt, startTime=startTime, endTime=endTime)
+
+        if valRes:
+            self.btn_Start.setEnabled(False)
+            self.btn_Stop.setEnabled(True)
+
+            self.le_Team.setEnabled(False)
+            self.le_Purpose.setEnabled(False)
+
+            self.cb_UsersCount.setEnabled(False)
+            self.cb_StartCourt.setEnabled(False)
+            self.cb_EndCourt.setEnabled(False)
+            self.cb_StartTime.setEnabled(False)
+            self.cb_EndTime.setEnabled(False)
+
+            self.cal_UsedDate.setEnabled(False)
+
+            StartMacro(self).start()
+
+    def validation(self, **kwargs):
+        valRes = True
+
+        if kwargs["teamName"] == '':
+            self.setLog('대표자 미 입력')
+            valRes = False
+
+        if kwargs["userCount"] == '':
+            self.setLog('참가 인원 미 입력')
+            valRes = False
+
+        if kwargs["purpose"] == '':
+            self.setLog('이용 목적 미 입력')
+            valRes = False
+
+        if kwargs["usedDate"] is None:
+            self.setLog('이용 날짜 미 입력')
+            valRes = False
+
+        if kwargs["startCourt"] == '':
+            self.setLog('시작 코트 미 입력')
+            valRes = False
+
+        if kwargs["endCourt"] == '':
+            self.setLog('종료 코트 미 입력')
+            valRes = False
+
+        if kwargs["startTime"] == '':
+            self.setLog('시작 시간 미 입력')
+            valRes = False
+
+        if kwargs["endTime"] == '':
+            self.setLog('종료 시간 미 입력')
+            valRes = False
+
+            if not valRes:
+                QMessageBox.question(self, 'Warning', '유효성 검증 오류!\nLog를 확인 하세요.', QMessageBox.Ok)
+            else:
+                iStartTime = int(kwargs["startTime"].split(':')[0])
+                iEndTime = int(kwargs["endTime"].split(':')[0])
+
+                if iEndTime - iStartTime == 1:
+                    QMessageBox.question(self, 'Warning', '해당 시설을 예약하기 위한 최소 시간이 미달되었습니다.', QMessageBox.Ok)
+                    self.setLog('해당 시설을 예약 하기 위한 최소 시간이 미달되었습니다.')
+                    valRes = False
+                elif iEndTime - iStartTime > 4:
+                    QMessageBox.question(self, 'Warning', '해당 시설을 예약하기 위한 최대 시간을 초과하였습니다.', QMessageBox.Ok)
+                    self.setLog('해당 시설을 예약 하기 위한 최대 시간을 초과하였습니다.')
+                    valRes = False
+
+        if self.macroController is None:
+            QMessageBox.question(self, 'Warning', '유효성 검증 오류!\nLog를 확인 하세요.', QMessageBox.Ok)
+            self.setLog('로그인 페이지를 오픈 해주세요.')
+            valRes = False
+
+        return valRes
+
+    # 매크로 중단
+    def stopMacroAction(self):
+        self.btn_Stop.setEnabled(False)
+        self.btn_Start.setEnabled(True)
+
+        self.le_Team.setEnabled(True)
+        self.le_Purpose.setEnabled(True)
+
+        self.cb_UsersCount.setEnabled(True)
+        self.cb_StartCourt.setEnabled(True)
+        self.cb_EndCourt.setEnabled(True)
+        self.cb_StartTime.setEnabled(True)
+        self.cb_EndTime.setEnabled(True)
+
+        self.cal_UsedDate.setEnabled(True)
+
+        StopMacro(self).start()
+
+    # 프로그램 종료
+    def exitProgram(self):
+        try:
+            self.btn_Exit.setEnabled(False)
+            existProgram = ExitProgram(self)
+            existProgram.start()
+        except Exception as e:
+            print(e)
+
+    # 종료 코트 CB
+    def changeEndCourtComboBoxAction(self):
+        startCourtNum = int(self.cb_StartCourt.currentText())
+        self.setCourt(startCourtNum)
+
+    def setCourt(self, start):
+        if self.cb_StartCourt.count() > 0:
+            self.cb_EndCourt.clear()
+
+            for i in range(start, 19):
+                self.cb_EndCourt.addItem(str(i))
+        else:
+            for i in range(start, 19):
+                self.cb_StartCourt.addItem(str(i))
+                self.cb_EndCourt.addItem(str(i))
+
+    # 종료 시간 CB
+    def changeEndTimeComboBoxAction(self):
+        week = self.cal_UsedDate.selectedDate().dayOfWeek()
+
+        self.cb_EndTime.clear()
+
+        # 빨간날
+        if (self.usedDate in self.holidays) or (week == 6 or week == 7):
+            for i in range(self.cb_StartTime.currentIndex(), 7):
+                iEndtime = (i * 3) + 11 - i
+                sEndTime = str(iEndtime)
+
+                if iEndtime == 23:
+                    sEndTime = str(iEndtime - 1)
+
+                self.cb_EndTime.addItem(sEndTime + ":00")
+        else:
+            for i in range(self.cb_StartTime.currentIndex(), 13):
+                iEndtime = 10 + i
+                sEndTime = str(iEndtime)
+
+                if iEndtime == 23:
+                    sEndTime = str(iEndtime - 1)
+
+                self.cb_EndTime.addItem(sEndTime + ":00")
+
+    # 날짜 선택
+    def calendarClicked(self):
+        week = self.cal_UsedDate.selectedDate().dayOfWeek()
+
+        self.usedDate = self.cal_UsedDate.selectedDate().toString('yyyyMMdd')
+        self.setLog("선택 한 날짜 : " + self.usedDate)
+
+        self.lbl_SelectedDate.setText('이용 날짜 : ' + self.cal_UsedDate.selectedDate().toString('yyyy-MM-dd'))
+
+        self.cb_StartTime.clear()
+        self.cb_EndTime.clear()
+
+        # 빨간날
+        if (self.usedDate in self.holidays) or (week == 6 or week == 7):
+            self.isWeek = True
+            for i in range(7):
+                iStartTime = (i * 3) + 9 - i
+
+                sStartTime = str(iStartTime)
+
+                if iStartTime < 10:
+                    sStartTime = '0' + sStartTime
+
+                self.cb_StartTime.addItem(sStartTime + ":00")
+        else:
+            self.isWeek = False
+            for i in range(13):
+                iStartTime = 9 + i
+
+                sStartTime = str(iStartTime)
+
+                if iStartTime < 10:
+                    sStartTime = '0' + sStartTime
+
+                self.cb_StartTime.addItem(sStartTime + ":00")
+
+    # 로그인 페이지 열기
+    def openPageAction(self):
+        self.setLog("로그인 페이지 Open")
+        self.setLog("Open 된 페이지를 닫으면 프로그램을 재 실행 해야 합니다.")
+        self.setLog("하단의 종료 버튼 클릭 시 열린 페이지와 프로그램이 종료됩니다.")
+        self.btn_OpenPage.setEnabled(False)
+        connectController = ConnectController(self)
+        connectController.start()
+        connectController.wait()
+
+        self.btn_Start.setEnabled(True)
+
+    # 타이머
+    @pyqtSlot()
+    def timeout(self):
+        sender = self.sender()
+        currentTime = QTime.currentTime().toString("hh:mm:ss")
+        if id(sender) == id(self.timer):
+            self.ln_CurrentTime.display(currentTime)
+
+    # set Log
+    @pyqtSlot()
+    def setLog(self, msg):
+        currentTime = QTime.currentTime().toString()
+        self.tb_Log.append(currentTime + ' : ' + msg)
+
+
+
+
+
+
+
+
+
+
+MacroMockdongMainController.py
+
+import sys
+import subprocess
+import random
+import csv
+import time
+
+import threading
+import urllib3
+import ssl
+
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.common.exceptions import UnexpectedAlertPresentException, NoSuchElementException, JavascriptException, WebDriverException
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as ec
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.alert import Alert
+
+import pyzbar.pyzbar as pyzbar
+
+from datetime import datetime
+
+def getCheckBoxIds(rIsWeek, rCourtNum, rStartTime, rEndTime):
+    checkBoxIds = []
+
+    if str(rCourtNum) == '9' or str(rCourtNum) == '12' or str(rCourtNum) == '14':
+        if rIsWeek:
+            if str(rEndTime) == '22':
+                if str(rStartTime) == '21':
+                    checkBoxIds.append('checkbox_time_9')
+                else:
+                    for i in range(8, 10):
+                        checkBoxIds.append('checkbox_time_' + str(i))
+            else:
+                for i in range(0, rEndTime - rStartTime):
+                    checkBoxIds.append('checkbox_time_' + str(rStartTime - 6 + i))
+        else:
+            for i in range(rStartTime, rEndTime):
+                checkBoxIds.append('checkbox_time_' + str(i - 6))
+    else:
+        if rIsWeek:
+            if str(rEndTime) == '22':
+                if str(rStartTime) == '21':
+                    checkBoxIds.append('checkbox_time_6')
+                else:
+                    for i in range(5, 7):
+                        checkBoxIds.append('checkbox_time_' + str(i))
+            else:
+                for i in range(0, rEndTime - rStartTime):
+                    checkBoxIds.append('checkbox_time_' + str(rStartTime - 9 + i))
+        else:
+            for i in range(rStartTime, rEndTime):
+                checkBoxIds.append('checkbox_time_' + str(i - 9))
+
+    return checkBoxIds
+
+def delayLoadedTagId(_driver, id, delayTime):
+    WebDriverWait(_driver, delayTime).until(
+        ec.presence_of_element_located((By.ID, id))
+    )
+
+def getRandomTime(self, firstDelay, secondDelay):
+    if firstDelay > 0:
+        randomNumber = random.randint(firstDelay * 10000, secondDelay * 10000)
+        randomTime = randomNumber / 10000
+
+        self.mainUI.setLog('Delay : ' + str(round(randomTime, 3)) + '(s) 기다리는 중...')
+        time.sleep(randomTime)
+
+# checkbox 스크립트
+def getCheckScripts(self, isWeek, courtNumber, startTime, endTime):
+    checkboxIds = getCheckBoxIds(isWeek, courtNumber, int(startTime), int(endTime))
+    self.checkBoxCount = len(checkboxIds)
+    checkScripts = [];
+
+    for j in checkboxIds:
+        checkScripts.append("document.getElementById('" + j + "').click();")
+
+    sCheckScripts = "\n".join(checkScripts)
+
+    return sCheckScripts
+
+# 예약 url
+def getReservationUrl(usedDate, startCourt):
+    return 'https://www.ycs.or.kr/fmcs/4?facilities_type=L&base_date=' + usedDate + '&rent_type=1001&center=YCS04&part=02&place=' \
+           + startCourt + '#regist_list'
+
+def set_chrome_driver():
+    chrome_options = webdriver.ChromeOptions()
+    chrome_options.add_argument('headless')
+    chrome_options.add_argument("disable-gpu")
+    chrome_options.add_argument("disable-infobars")
+    chrome_options.add_argument("--disable-extensions")
+
+    chrome_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
+
+    try:
+        s = Service()
+        driver = webdriver.Chrome(service=s, options=chrome_options)
+    except Exception as e:
+        print(e)
+
+    return driver
+
+class MacroMockdongMainController:
+    def __init__(self, mainUI):
+        subprocess.Popen(r'C:\Program Files\Google\Chrome\Application\chrome.exe --remote-debugging-port=9222 --user-data-dir="C:\chrometemp1"')  # 디버거 크롬 구동
+
+        self.chromeDriver = set_chrome_driver()
+        self.isStart = False
+        self.macroInfoList = None
+        self.mainUI = mainUI
+        self.checkBoxCount = 0
+
+    def moveToLoginPage(self):
+        loginPagePath = 'https://www.ycs.or.kr/fmcs/133?referer=https%3A%2F%2Fwww.ycs.or.kr%2Ffmcs%2F1'
+        self.chromeDriver.get(loginPagePath)
+
+    def startMacro(self):
+        self.mainUI.setLog("매크로 시작!")
+        self.isStart = True
+
+        # 대표자
+        teamName = self.mainUI.le_Team.text()
+        # 참가 인원
+        userCount = self.mainUI.cb_UsersCount.currentText()
+        # 이용 목적
+        purpose = self.mainUI.le_Purpose.text()
+        # 이용 날짜
+        usedDate = self.mainUI.usedDate
+        # 시작 코트
+        startCourt = self.mainUI.cb_StartCourt.currentText()
+        # 종료 코트
+        endCourt = self.mainUI.cb_EndCourt.currentText()
+        # 시작 시간
+        startTime = int(self.mainUI.cb_StartTime.currentText().split(':')[0])
+        # 종료 시간
+        endTime = int(self.mainUI.cb_EndTime.currentText().split(':')[0])
+
+        # 주말 여부
+        isWeek = self.mainUI.isWeek
+
+        if isWeek:
+            with open('macroDatasWeekEnd.csv', "r", encoding='utf-8-sig') as f:
+                reader = csv.reader(f)
+                macroInfoList = list(reader)
+                self.macroInfoList = macroInfoList
+        else:
+            with open('macroDatasWeekDay.csv', "r", encoding='utf-8-sig') as f:
+                reader = csv.reader(f)
+                macroInfoList = list(reader)
+                self.macroInfoList = macroInfoList
+
+        try:
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            if str(startCourt) == str(endCourt):
+                for i in range(10000000000):
+                    if not self.isStart:
+                        return
+
+                    url = getReservationUrl(str(usedDate), str(startCourt))
+                    sCheckScripts = getCheckScripts(self, isWeek, startCourt, int(startTime), int(endTime))
+
+                    parent_window = self.chromeDriver.current_window_handle
+                    # for i in range(10):
+                    t = ReservationMacroThread(self, url, sCheckScripts, parent_window, teamName, userCount, purpose)
+                    t.daemon = True
+                    t.start()
+                    t.join()
+            else:
+                for i in range(10000000000):
+                    courtNumberUp = int(startCourt)
+                    while courtNumberUp < int(endCourt) + 1:
+                        if courtNumberUp == 10 or courtNumberUp == 11 or courtNumberUp == 12:
+                            courtNumberUp += 1
+                            continue
+                        try:
+                            if not self.isStart:
+                                return
+
+                            url = getReservationUrl(str(usedDate), str(courtNumberUp))
+                            sCheckScripts = getCheckScripts(self, isWeek, courtNumberUp, int(startTime), int(endTime))
+
+                            parent_window = self.chromeDriver.current_window_handle
+                            # for i in range(10):
+                            t = ReservationMacroThread(self, url, sCheckScripts, parent_window, teamName, userCount,
+                                                       purpose)
+                            t.daemon = True
+                            t.start()
+                            t.join()
+
+                            courtNumberUp += 1
+                        except:
+                            courtNumberUp += 1
+
+
+
+        except Exception as e:
+            print(e)
+            pass
+
+    def stopMacro(self):
+        self.mainUI.setLog("매크로 중지!")
+        self.isStart = False
+
+    def exitProgram(self):
+        self.mainUI.setLog("잠시 후 열린 페이지와 프로그램이 종료됩니다.")
+        for i in self.chromeDriver.window_handles:
+            self.chromeDriver.switch_to.window(i)
+            self.chromeDriver.close()
+
+        self.chromeDriver.quit()
+        self.mainUI.close()
+        sys.exit()
+
+class ReservationMacroThread(threading.Thread):
+    def __init__(self, parent, url, sCheckScripts, parent_window, teamName, userCount, purpose):
+        super(ReservationMacroThread, self).__init__()
+        self.parent = parent
+        self.url = url
+        self.sCheckScripts = sCheckScripts
+        self.parent_window = parent_window
+        self.teamName = teamName
+        self.userCount = userCount
+        self.purpose = purpose
+
+    def run(self):
+        _driver = self.parent.chromeDriver
+        _driver.get(self.url)
+
+        delayLoadedTagId(_driver, 'checkbox_time_0', 10)
+
+        # checkbox click
+        _driver.execute_script(self.sCheckScripts)
+
+        # QR 인증
+        # =======================================================
+        delayLoadedTagId(_driver, 'phone_chk', 10)
+
+        script = ('document.getElementById("phone_chk").click();')
+        _driver.execute_script(script)
+
+        all_windows = _driver.window_handles
+
+        if len([window for window in all_windows if window != self.parent_window]) == 0:
+            return
+
+        child_window = [window for window in all_windows if window != self.parent_window][0]
+        _driver.switch_to.window(child_window)
+
+        delayLoadedTagId(_driver, 'pattern_inactive', 10)
+
+        # 큐알 인증
+        script = ("document.getElementById('pattern_inactive').click();")
+        _driver.execute_script(script)
+
+        # 핸들러를 사용하여 현재 띄어진 창으로 전환
+        _driver.switch_to.window(_driver.current_window_handle)
+
+        # 현재 띄어진 창에서 스크린샷을 찍기
+        _driver.save_screenshot("screenshot1.png")
+
+        # 원하는 태그만 자르기
+        from PIL import Image
+        dnjsqhsimage = Image.open("screenshot1.png")
+
+        decodedObjects = pyzbar.decode(dnjsqhsimage)
+
+        qrcodeData = ""
+
+        for obj in decodedObjects:
+            qrcodeData = obj.data.decode("utf-8").split(":")[1].strip()
+
+        # QR 입력
+        script = (f"document.getElementById('qr_number').value='{qrcodeData}';")
+        _driver.execute_script(script)
+
+        verificationButton = _driver.find_element(By.CSS_SELECTOR,
+                                                  '#container_qr > div.mt-2 > div.button_contents.mt-4 > div > div.col-3 > button')
+        verificationButton.click()
+
+        # 경고창을 클릭합니다.
+        WebDriverWait(_driver, 10).until(ec.alert_is_present())
+        Alert(_driver).accept()  # 확인 버튼 클릭
+
+        _driver.switch_to.window(self.parent_window)
+        # =======================================================
+        WebDriverWait(_driver, 10).until(
+            ec.presence_of_element_located((By.CLASS_NAME, "action_application"))
+        )
+
+        script = ("document.getElementsByClassName('action_application')[0].click();")
+        _driver.execute_script(script)
+
+        WebDriverWait(_driver, 10).until(ec.alert_is_present())
+        Alert(_driver).accept()  # 확인 버튼 클릭
+
+        _driver.switch_to.window(self.parent_window)
+        _driver = self.parent.chromeDriver
+        delayLoadedTagId(_driver, 'team_nm', 10)
+
+        time_datas = _driver.find_element(By.ID, 'time_datas')
+
+        time_datsValue = time_datas.get_attribute('value')
+
+        if len(time_datsValue.split('|')) < self.parent.checkBoxCount:
+            return
+
+        currentHour = datetime.now().time().hour
+        currentMin = datetime.now().time().min
+
+        if currentHour == 9 and (currentMin == 0 or currentMin == 30):
+            while True:
+                if datetime.now().time().second > 7:
+                    break
+
+        getRandomTime(self.parent, 0.5, 0.8)
+
+        self.parent.mainUI.setLog('step1 완료 시간 : ' + str(datetime.now().time().second) + 's')
+
+        phoneNumberEle = _driver.find_element(By.ID, 'mobile_tel')
+
+        phoneNum = phoneNumberEle.get_attribute("value").replace('-', '')
+
+        # 필수 값 입력, 핸드폰 인증 클릭
+        script= (f"document.getElementById('team_nm').value='{self.teamName}';"
+                  f"document.getElementById('users').value={self.userCount};"
+                  "document.getElementById('tel').value = '';"
+                  f"document.getElementById('purpose').value = '{self.purpose}';"
+                  "document.getElementById('agree_use1').checked = true;"
+                  "document.getElementsByClassName('button action_edit')[0].click();")
+
+        _driver.execute_script(script)
+
+        all_windows = _driver.window_handles
+
+        child_window = [window for window in all_windows if window != self.parent_window][0]
+
+        _driver.switch_to.window(child_window)
+
+        delayLoadedTagId(_driver, 'fade', 10)
+
+        wait = WebDriverWait(_driver, 30)
+        loadingDiv = wait.until(ec.element_to_be_clickable((By.ID, 'fade')))
+
+        wait.until(lambda driver: loadingDiv.get_attribute('style').find('display: none;') > -1)
+
+        script = ("document.getElementById('message_inactive').click();")
+        _driver.execute_script(script)
+
+        script = (f"document.getElementById('phone_number').value='{phoneNum}';"
+                  "document.getElementsByClassName('btn btn-lg btn-secondary')[0].click()")
+
+        # 핸드폰 번호 넣고 인증 하는 부분
+        while True:
+            if datetime.now().time().second > 14:
+                break
+
+        getRandomTime(self.parent, 0.2, 0.4)
+        _driver.execute_script(script)
+
+        self.parent.mainUI.setLog('step2 완료 시간 : ' + str(datetime.now().time().second) + 's')
+
+        # 경고창을 클릭합니다.
+        WebDriverWait(_driver, 10).until(ec.alert_is_present())
+        Alert(_driver).accept()  # 확인 버튼 클릭
+
+        script = ("document.getElementById('check_number').focus()")
+        _driver.execute_script(script)
+
+        # 텍스트 상자에 길이가 5이고 숫자인 값이 입력 될 때까지 대기합니다.
+        textbox = wait.until(ec.element_to_be_clickable((By.ID, 'check_number')))
+        wait.until(
+            lambda driver: len(textbox.get_attribute('value').strip()) == 6)
+
+        script = ("document.getElementsByClassName('btn btn-lg btn-success me-3')[0].click();")
+        _driver.execute_script(script)
+
+        alert2 = WebDriverWait(_driver, 20).until(ec.alert_is_present())
+        if alert2.text == '인증번호가 올바르지 않습니다':
+            Alert(_driver).accept()  # 확인 버튼 클릭
+
+            script = (f"document.getElementById('check_number').value='{''}';")
+            _driver.execute_script(script)
+
+            script = ("document.getElementById('check_number').focus()")
+            _driver.execute_script(script)
+
+            # 텍스트 상자에 길이가 6이고 숫자인 값이 입력 될 때까지 대기합니다.
+            textbox = wait.until(ec.element_to_be_clickable((By.ID, 'check_number')))
+            wait.until(
+                lambda driver: len(
+                    textbox.get_attribute('value').strip()) == 6)
+
+            script = ("document.getElementsByClassName('btn btn-lg btn-success me-3')[0].click();")
+            _driver.execute_script(script)
+
+            alert3 = WebDriverWait(_driver, 20).until(ec.alert_is_present())
+            if alert3.text == '인증번호가 올바르지 않습니다':
+                _driver.close()
+                _driver.switch_to.window(self.parent_window)
+            else:
+                Alert(_driver).accept()  # 확인 버튼 클릭
+
+                _driver.switch_to.window(self.parent_window)
+
+                script = ("document.getElementsByClassName('button action_write')[0].click();")
+                getRandomTime(self.parent, 0.2, 0.5)
+                _driver.execute_script(script)
+
+                self.parent.mainUI.setLog('step3 완료 시간 : ' + str(datetime.now().time().second) + 's')
+
+                WebDriverWait(_driver, 20).until(ec.alert_is_present())
+                Alert(_driver).accept()  # 확인 버튼 클릭
+        else:
+            Alert(_driver).accept()  # 확인 버튼 클릭
+
+            _driver.switch_to.window(self.parent_window)
+
+            script = ("document.getElementsByClassName('button action_write')[0].click();")
+            getRandomTime(self.parent, 0.2, 0.5)
+            _driver.execute_script(script)
+
+            self.parent.mainUI.setLog('step3 완료 시간 : ' + str(datetime.now().time().second) + 's')
+
+            WebDriverWait(_driver, 20).until(ec.alert_is_present())
+            Alert(_driver).accept()  # 확인 버튼 클릭
+
+
+
