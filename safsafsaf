@@ -240,7 +240,7 @@ class MacroMockdongMainUi(QDialog, form_class):
 
         # 코트 사진
         self.qPixmapVar = QPixmap()
-        self.qPixmapVar.load("courtView.jpg")
+        self.qPixmapVar.load("tennisPrince.jpg")
         self.lbl_Img.setPixmap(self.qPixmapVar)
 
         # 팀, 목적 자동 setting
@@ -549,10 +549,19 @@ class MacroMockdongMainUi(QDialog, form_class):
             self.ln_CurrentTime.display(currentTime)
 
     # set Log
-    @pyqtSlot()
+    @pyqtSlot(str)
     def setLog(self, msg):
+        horScrollBar = self.tb_Log.horizontalScrollBar()
+        verScrollBar = self.tb_Log.verticalScrollBar()
+        scrollIsAtEnd = verScrollBar.maximum() - verScrollBar.value() <= 10
+
         currentTime = QTime.currentTime().toString()
         self.tb_Log.append(currentTime + ' : ' + msg)
+
+        if scrollIsAtEnd:
+            verScrollBar.setValue(verScrollBar.maximum())  # Scrolls to the bottom
+            horScrollBar.setValue(0)  # scroll to the left
+
 
 
 
@@ -730,7 +739,7 @@ class MacroMockdongMainController:
 
                     parent_window = self.chromeDriver.current_window_handle
                     # for i in range(10):
-                    t = ReservationMacroThread(self, url, sCheckScripts, parent_window, teamName, userCount, purpose)
+                    t = ReservationMacroThread(self, url, sCheckScripts, parent_window, teamName, userCount, purpose, False)
                     t.daemon = True
                     t.start()
                     t.join()
@@ -746,12 +755,13 @@ class MacroMockdongMainController:
                                 return
 
                             url = getReservationUrl(str(usedDate), str(courtNumberUp))
+
                             sCheckScripts = getCheckScripts(self, isWeek, courtNumberUp, int(startTime), int(endTime))
 
                             parent_window = self.chromeDriver.current_window_handle
                             # for i in range(10):
                             t = ReservationMacroThread(self, url, sCheckScripts, parent_window, teamName, userCount,
-                                                       purpose)
+                                                       purpose, True)
                             t.daemon = True
                             t.start()
                             t.join()
@@ -781,7 +791,7 @@ class MacroMockdongMainController:
         sys.exit()
 
 class ReservationMacroThread(threading.Thread):
-    def __init__(self, parent, url, sCheckScripts, parent_window, teamName, userCount, purpose):
+    def __init__(self, parent, url, sCheckScripts, parent_window, teamName, userCount, purpose, isCancel):
         super(ReservationMacroThread, self).__init__()
         self.parent = parent
         self.url = url
@@ -790,8 +800,12 @@ class ReservationMacroThread(threading.Thread):
         self.teamName = teamName
         self.userCount = userCount
         self.purpose = purpose
+        self.isCancel = isCancel
 
     def run(self):
+        if not self.parent.isStart:
+            return
+
         _driver = self.parent.chromeDriver
         _driver.get(self.url)
 
@@ -824,6 +838,11 @@ class ReservationMacroThread(threading.Thread):
         # 핸들러를 사용하여 현재 띄어진 창으로 전환
         _driver.switch_to.window(_driver.current_window_handle)
 
+        if not self.parent.isStart:
+            _driver.close()
+            _driver.switch_to.window(self.parent_window)
+            return
+
         # 현재 띄어진 창에서 스크린샷을 찍기
         _driver.save_screenshot("screenshot1.png")
 
@@ -842,6 +861,11 @@ class ReservationMacroThread(threading.Thread):
         script = (f"document.getElementById('qr_number').value='{qrcodeData}';")
         _driver.execute_script(script)
 
+        if not self.parent.isStart:
+            _driver.close()
+            _driver.switch_to.window(self.parent_window)
+            return
+
         verificationButton = _driver.find_element(By.CSS_SELECTOR,
                                                   '#container_qr > div.mt-2 > div.button_contents.mt-4 > div > div.col-3 > button')
         verificationButton.click()
@@ -855,6 +879,9 @@ class ReservationMacroThread(threading.Thread):
         WebDriverWait(_driver, 10).until(
             ec.presence_of_element_located((By.CLASS_NAME, "action_application"))
         )
+
+        if not self.parent.isStart:
+            return
 
         script = ("document.getElementsByClassName('action_application')[0].click();")
         _driver.execute_script(script)
@@ -873,17 +900,29 @@ class ReservationMacroThread(threading.Thread):
         if len(time_datsValue.split('|')) < self.parent.checkBoxCount:
             return
 
+        if not self.parent.isStart:
+            return
+
         currentHour = datetime.now().time().hour
         currentMin = datetime.now().time().min
+
+        if not self.parent.isStart:
+            return
 
         if currentHour == 9 and (currentMin == 0 or currentMin == 30):
             while True:
                 if datetime.now().time().second > 7:
                     break
 
-        getRandomTime(self.parent, 0.5, 0.8)
+        if not self.isCancel:
+            getRandomTime(self.parent, 0.5, 0.8)
+        else:
+            getRandomTime(self.parent, 4.2, 6.5)
 
         self.parent.mainUI.setLog('step1 완료 시간 : ' + str(datetime.now().time().second) + 's')
+
+        if not self.parent.isStart:
+            return
 
         phoneNumberEle = _driver.find_element(By.ID, 'mobile_tel')
 
@@ -905,6 +944,11 @@ class ReservationMacroThread(threading.Thread):
 
         _driver.switch_to.window(child_window)
 
+        if not self.parent.isStart:
+            _driver.close()
+            _driver.switch_to.window(self.parent_window)
+            return
+
         delayLoadedTagId(_driver, 'fade', 10)
 
         wait = WebDriverWait(_driver, 30)
@@ -915,18 +959,38 @@ class ReservationMacroThread(threading.Thread):
         script = ("document.getElementById('message_inactive').click();")
         _driver.execute_script(script)
 
+        if not self.parent.isStart:
+            _driver.close()
+            _driver.switch_to.window(self.parent_window)
+            return
+
         script = (f"document.getElementById('phone_number').value='{phoneNum}';"
                   "document.getElementsByClassName('btn btn-lg btn-secondary')[0].click()")
+
+        if not self.parent.isStart:
+            _driver.close()
+            _driver.switch_to.window(self.parent_window)
+            return
 
         # 핸드폰 번호 넣고 인증 하는 부분
         while True:
             if datetime.now().time().second > 14:
                 break
 
+        if not self.parent.isStart:
+            _driver.close()
+            _driver.switch_to.window(self.parent_window)
+            return
+
         getRandomTime(self.parent, 0.2, 0.4)
         _driver.execute_script(script)
 
         self.parent.mainUI.setLog('step2 완료 시간 : ' + str(datetime.now().time().second) + 's')
+
+        if not self.parent.isStart:
+            _driver.close()
+            _driver.switch_to.window(self.parent_window)
+            return
 
         # 경고창을 클릭합니다.
         WebDriverWait(_driver, 10).until(ec.alert_is_present())
@@ -934,6 +998,11 @@ class ReservationMacroThread(threading.Thread):
 
         script = ("document.getElementById('check_number').focus()")
         _driver.execute_script(script)
+
+        if not self.parent.isStart:
+            _driver.close()
+            _driver.switch_to.window(self.parent_window)
+            return
 
         # 텍스트 상자에 길이가 5이고 숫자인 값이 입력 될 때까지 대기합니다.
         textbox = wait.until(ec.element_to_be_clickable((By.ID, 'check_number')))
@@ -971,6 +1040,9 @@ class ReservationMacroThread(threading.Thread):
 
                 _driver.switch_to.window(self.parent_window)
 
+                if not self.parent.isStart:
+                    return
+
                 script = ("document.getElementsByClassName('button action_write')[0].click();")
                 getRandomTime(self.parent, 0.2, 0.5)
                 _driver.execute_script(script)
@@ -984,6 +1056,9 @@ class ReservationMacroThread(threading.Thread):
 
             _driver.switch_to.window(self.parent_window)
 
+            if not self.parent.isStart:
+                return
+
             script = ("document.getElementsByClassName('button action_write')[0].click();")
             getRandomTime(self.parent, 0.2, 0.5)
             _driver.execute_script(script)
@@ -992,6 +1067,9 @@ class ReservationMacroThread(threading.Thread):
 
             WebDriverWait(_driver, 20).until(ec.alert_is_present())
             Alert(_driver).accept()  # 확인 버튼 클릭
+
+
+
 
 
 
